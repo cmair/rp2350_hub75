@@ -32,8 +32,9 @@
 #include "hue_value_spectrum.hpp"
 #include "pixel_fill.hpp"
 #include "grey_scale_stripes.hpp"
+#include "rectangle.hpp"
 
-static int demo_index = 0; ///< Example selector
+static int demo_index = -1; ///< Example selector (-1 for auto-cycle)
 
 // Perform initialisation
 int pico_led_init(void)
@@ -88,7 +89,7 @@ int led_init(void)
  */
 bool skip_to_next_demo(__unused struct repeating_timer *t)
 {
-    if (++demo_index > 7)
+    if (++demo_index > 8)
     {
         demo_index = 0; // Cycle through all examples
     }
@@ -158,9 +159,14 @@ int main()
 
     GreyScaleStripes greyScaleStripes = GreyScaleStripes(DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
+    Rectangle rectangle = Rectangle(DISPLAY_WIDTH, DISPLAY_HEIGHT);
+
     // Cycle through the examples - move to next example every 15 seconds
     struct repeating_timer timer;
-    add_repeating_timer_ms(-15.0 / 1.0 * 1000.0, skip_to_next_demo, NULL, &timer);
+    if (demo_index < 0) {
+        demo_index = 0;
+        add_repeating_timer_ms(-5.0 / 1.0 * 1000.0, skip_to_next_demo, NULL, &timer);
+    }
 
     // The Hub75 driver is constantly running on core 1 with a frequency usually much higher than 200Hz.
     // CPU load (on core 1) is low due to DMA and PIO usage.
@@ -229,6 +235,11 @@ int main()
         {
             greyScaleStripes.drawStripes();
             update(&greyScaleStripes);
+        }
+        else if (demo_index == 8)
+        {
+            rectangle.draw();
+            update(&rectangle);
         }
 
         // matrix panel brightness will vary when you uncomment the following api call
