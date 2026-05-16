@@ -97,7 +97,7 @@ static_assert(CHAIN_COLS >= 1, "CHAIN_COLS must be >= 1");
 //
 // #define HUB75                       // default - two rows lit simultaneously
 // #define HUB75_P10_3535_16X32_4S     // four rows lit simultaneously (can be defined via CMake)
-// #define HUB75_P3_1415_16S_64X64_S31 // four rows lit simultaneously
+#define HUB75_P3_1415_16S_64X64_S31 // four rows lit simultaneously
 //
 // Default to HUB75 if no multiplexing mode is defined
 // Only define default if none of the mapping modes are already defined

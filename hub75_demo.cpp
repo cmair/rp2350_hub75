@@ -117,11 +117,11 @@ void core1_entry()
 void initialize()
 {
     // Set system clock to 250MHz - just to show that it is possible to drive the HUB75 panel with a high clock speed
-    set_sys_clock_khz(266000, true);
+    set_sys_clock_khz(230000, true);
 
     stdio_init_all(); // Initialize Pico SDK
 
-    led_init(); // Initialize LED - blinking at program start
+//    led_init(); // Initialize LED - blinking at program start
 
 #if HUB75_MULTICORE == true
     // Run hub75 driver on core1
@@ -169,10 +169,10 @@ int main()
     float ms = 1000.0f / hz;
 
     // set basis brightness of matrix panel
-    setBasisBrightness(8);
+    setBasisBrightness(60);
 
     // set full brightness of panel
-    float intensity = 1.0f;
+    float intensity = 0.025f;
     setIntensity(intensity);
 
     float step = -0.005f;

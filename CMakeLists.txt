@@ -64,18 +64,18 @@ target_compile_definitions(hub75 PRIVATE
     # PICO_RP2350A=0              # PICO_RP2350A=0` means not a RP2350A but a RP2350B microcontroller - uncomment for RP235xB microcontroller only!
     USE_PICO_GRAPHICS=true      # set to false if you use hub75 as a library - any reference to pico_graphics is removed
     MATRIX_PANEL_WIDTH=64       # your matrix panel width
-    MATRIX_PANEL_HEIGHT=64      # your matrix panel height
+    MATRIX_PANEL_HEIGHT=32      # your matrix panel height
     CHAIN_MODE=CHAIN_MODE_SERPENTINE # set chain-mode - default is serpentine (U-Turn with compensation for 180° rotation)
     CHAIN_COLS=1                # number of panels chained left-to-right in a single chain row (columns)
-    CHAIN_ROWS=1                # number of chain rows stacked vertically (rows)
-    DATA_BASE_PIN=30            # base GPIO pin (aka start index) of R0, G0, B0, R1, G1, B1 GPIO pins
+    CHAIN_ROWS=2                # number of chain rows stacked vertically (rows)
+    DATA_BASE_PIN=0             # base GPIO pin (aka start index) of R0, G0, B0, R1, G1, B1 GPIO pins
     DATA_N_PINS=6               # number (count) of colour pins (usually 6)
-    ROWSEL_BASE_PIN=36          # base GPIO address pin (aka start index) of A, B (, C, D. E) GPIO pins
-    ROWSEL_N_PINS=5             # number (count) of address pins available on your matrix panel board (look at your panels connector)
-    CLK_PIN=41                  # GPIO pin for CLK
-    STROBE_PIN=42               # GPIO pin for STROBE (LATCH)
-    OEN_PIN=43                  # GPIO for OE pin
-    PANEL=HUB75                 # 
+    ROWSEL_BASE_PIN=6           # base GPIO address pin (aka start index) of A, B (, C, D. E) GPIO pins
+    ROWSEL_N_PINS=3             # number (count) of address pins available on your matrix panel board (look at your panels connector)
+    CLK_PIN=11                  # GPIO pin for CLK
+    STROBE_PIN=12               # GPIO pin for STROBE (LATCH)
+    OEN_PIN=13                  # GPIO for OE pin
+#    PANEL=HUB75_P3_1415_16S_64X64_S31 #
     PANEL_TYPE=PANEL_GENERIC    # select PANEL_TYPE
     INVERTED_STB=false          # inverted pin signal for OE (untested)
     SM_CLOCKDIV_FACTOR=1.0f     # to prevent flicker or ghosting it might be worth a try to reduce state machine speed
@@ -88,7 +88,7 @@ target_compile_definitions(hub75 PRIVATE
     BASE_ADDR_NS=120            # wait time in nano-seconds to stabilise row addressing
     BASE_OE_NS=40               # pre-Oe guard wait time in nano-seconds (prevents ghost flashes)
     HUB75_MULTICORE=true        # use core1 for the hub75 driver
-    FRAME_RATE=false            # for testing and debugging purpose only: output frame rate information (printf) in monitor - set to `false` for production
+    FRAME_RATE=true            # for testing and debugging purpose only: output frame rate information (printf) in monitor - set to `false` for production
 )
 
 # Generate PIO header
