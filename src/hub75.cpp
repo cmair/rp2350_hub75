@@ -948,7 +948,7 @@ inline int32_t map_pixel(int row, int v, int h, bool reverse)
     const int32_t direction = reverse ? -1 : 1;
     const int32_t vertical_offset = reverse ? v + 1 : v;
 
-    return vertical_offset * panel_stride + direction * (int32_t)(h * MATRIX_PANEL_WIDTH + row * PanelConfig::stride_row);
+    return (vertical_offset * panel_stride + direction * (int32_t)(h * MATRIX_PANEL_WIDTH + row * PanelConfig::stride_row)) / 2;
 }
 #elif defined(HUB75_P10_3535_16X32_4S)
 inline int32_t map_p10_pixel_pair(int j, int line)
@@ -1223,6 +1223,7 @@ __attribute__((optimize("unroll-loops"))) void update(
                         rgb_buffer[fb_index++] = LUT_MAPPING(src[base0 - j]);
                         rgb_buffer[fb_index++] = LUT_MAPPING(src[base2 - j]);
                     }
+//                    printf("row: %d, v-ch: %d, h-ch: %d, offset: %d, dw: %d, dh: %d, chain rows: %d, chain cols: %d, scan depth: %d, stride-to-paired-row: %d, reverse: %d, base0: %d, base1: %d ,base2: %d, base3: %d\n", row, v, h, row_offset, DISPLAY_WIDTH, DISPLAY_HEIGHT, CHAIN_ROWS, CHAIN_COLS, PanelConfig::SCAN_DEPTH, PanelConfig::stride_to_paired_row, reverse, base0, base1, base2, base3);
                 }
                 else
                 {
@@ -1244,10 +1245,12 @@ __attribute__((optimize("unroll-loops"))) void update(
                         rgb_buffer[fb_index++] = LUT_MAPPING(src[base0 + j]);
                         rgb_buffer[fb_index++] = LUT_MAPPING(src[base2 + j]);
                     }
+//                    printf("row: %d, v-ch: %d, h-ch: %d, offset: %d, dw: %d, dh: %d, chain rows: %d, chain cols: %d, scan depth: %d, stride-to-paired-row: %d, reverse: %d, base0: %d, base1: %d ,base2: %d, base3: %d\n", row, v, h, row_offset, DISPLAY_WIDTH, DISPLAY_HEIGHT, CHAIN_ROWS, CHAIN_COLS, PanelConfig::SCAN_DEPTH, PanelConfig::stride_to_paired_row, reverse, base0, base1, base2, base3);
                 }
             }
         }
     }
+//    printf("\n\n");
 #endif
 #endif
     // Kick off building bitplanes from rgb_buffer to be written to frame_buffer

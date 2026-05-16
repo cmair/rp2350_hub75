@@ -308,7 +308,7 @@ namespace PanelConfig
     constexpr uint32_t BITPLANE_STREAM_LENGTH = ((MATRIX_PANEL_WIDTH * CHAIN_ROWS * CHAIN_COLS) >> 1u) * ROWS_IN_PARALLEL;
 
     constexpr uint32_t stride_row = MATRIX_PANEL_WIDTH * CHAIN_ROWS;
-    constexpr uint32_t stride_to_paired_row = MATRIX_PANEL_WIDTH * CHAIN_ROWS * CHAIN_COLS * SCAN_DEPTH;
+    constexpr uint32_t stride_to_paired_row = MATRIX_PANEL_WIDTH * CHAIN_ROWS * CHAIN_COLS * SCAN_DEPTH / 2;
 }
 
 enum Hub75ChainMode
