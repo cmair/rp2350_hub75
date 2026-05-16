@@ -19,11 +19,7 @@
 
 // Frame buffer for the HUB75 matrix - memory area where pixel data is stored
 alignas(32) uint8_t *frame_buffer; ///< Back buffer — written by bitplane builder (read_chan_handler)
-uint8_t *frame_buffer1;            ///< Physical buffer A
-uint8_t *frame_buffer2;            ///< Physical buffer B
 uint8_t *dma_buffer;               ///< Front buffer — read by pixel_chan DMA → panel streamer
-
-static uint32_t *rgb_buffer;
 
 /**
  * @struct row_cmd_t
@@ -60,8 +56,6 @@ struct row_cmd_t
 constexpr uint32_t row_cmd_struct_members = sizeof(row_cmd_t) / sizeof(uint32_t);
 
 row_cmd_t *row_cmd_buffer;
-row_cmd_t *row_cmd_buffer1;
-row_cmd_t *row_cmd_buffer2;
 row_cmd_t *dma_row_cmd_buffer;
 
 static volatile bool swap_row_cmd_buffer_pending = false;
@@ -94,6 +88,15 @@ static const uint8_t BCM_SEQUENCE[] = {
 #endif
 
 constexpr uint8_t bcm_sequence_length = sizeof(BCM_SEQUENCE) / sizeof(uint8_t);
+
+static uint8_t frame_buffer1[(TOTAL_PIXELS >> 1) * bcm_sequence_length];
+static uint8_t frame_buffer2[(TOTAL_PIXELS >> 1) * bcm_sequence_length];
+
+static row_cmd_t row_cmd_buffer1[PanelConfig::SCAN_DEPTH * bcm_sequence_length];
+static row_cmd_t row_cmd_buffer2[PanelConfig::SCAN_DEPTH * bcm_sequence_length];
+
+static uint32_t rgb_buffer[TOTAL_PIXELS];
+
 
 static void configure_pio(bool);
 static void setup_dma_transfers();
@@ -653,19 +656,11 @@ void setup_bitplane_stream_irq()
  */
 void create_hub75_driver(uint w, uint h, uint panel_type = PANEL_TYPE, bool inverted_stb = INVERTED_STB)
 {
-    frame_buffer1 = new uint8_t[(TOTAL_PIXELS >> 1) * bcm_sequence_length];
-    frame_buffer2 = new uint8_t[(TOTAL_PIXELS >> 1) * bcm_sequence_length];
-
     dma_buffer = frame_buffer1;
     frame_buffer = frame_buffer2;
 
-    row_cmd_buffer1 = new row_cmd_t[PanelConfig::SCAN_DEPTH * bcm_sequence_length];
-    row_cmd_buffer2 = new row_cmd_t[PanelConfig::SCAN_DEPTH * bcm_sequence_length];
-
     dma_row_cmd_buffer = row_cmd_buffer1;
     row_cmd_buffer = row_cmd_buffer2;
-
-    rgb_buffer = new uint32_t[TOTAL_PIXELS]();
 
     hub75_timing_init(&hub75_timing_config, clock_get_hz(clk_sys), (SM_CLOCKDIV_FACTOR < 1.0f) ? 1.0f : SM_CLOCKDIV_FACTOR);
 
