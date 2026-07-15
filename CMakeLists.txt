@@ -39,6 +39,8 @@ project(hub75_demo C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
+add_subdirectory(utils)
+
 # Add library. This is the core HUB75 driver.
 add_library(hub75 STATIC)
 
@@ -127,6 +129,7 @@ pico_generate_pio_header(hub75_demo ${CMAKE_CURRENT_LIST_DIR}/src/hub75.pio)
 
 
 pico_add_extra_outputs(hub75_demo)
+print_size_info(hub75_demo)
 
 
 # Add dual-panel demo executable - two independent Hub75Driver instances, see
@@ -169,4 +172,5 @@ target_include_directories(hub75_demo_dual PRIVATE
 pico_generate_pio_header(hub75_demo_dual ${CMAKE_CURRENT_LIST_DIR}/src/hub75.pio)
 
 pico_add_extra_outputs(hub75_demo_dual)
+print_size_info(hub75_demo_dual)
 
