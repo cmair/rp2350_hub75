@@ -437,6 +437,8 @@ description.
 | `chain_cols` | `1` | Number of panels chained left-to-right within a single chain row. |
 | `chain_mode` | `Hub75ChainMode::SERPENTINE` | `SERPENTINE` (U-turn, default) or `RASTER`. |
 | `panel_kind` | `RowMapping::Standard` | Pixel-mapping topology: `Standard`, `Split`, or `S31`. |
+| `address_type` | `RowAddressing::Binary` | Row-addressing scheme: `Binary` or `ABCShiftRegister` — see [Row Addressing](#row-addressing--how-the-row-number-reaches-the-panel). |
+| `scan_mode` | `0` (derived) | Number of distinct row addresses — the "N" in the panel's stated 1:N scan rate. `0` derives it from the panel height and addressing; set it when that is wrong. See [Step 2](#step-2--scan-rate-and-rows-lit-simultaneously). |
 | `panel_chip` | `Hub75PanelChip::GENERIC` | Driver-IC init sequence: `GENERIC`, `FM6126A`, or `RUL6024`. |
 | `inverted_stb` | `false` | Set `true` if the latch (strobe) signal is inverted on your board. |
 | `sm_clockdiv_factor` | `1.0f` | PIO state machine clock divider. Values > 1.0 slow the state machine down — useful against ghosting/flicker on smaller panels. |
@@ -616,6 +618,9 @@ extra cost.
 | `RowMapping::S31` | 4 | 1/16 S | 64×64 outdoor | 4 |
 
 > 💡 The number of address lines (`pins.rowsel_n_pins`) must match the selected mapping.
+> This assumes the default `RowAddressing::Binary`. A panel that selects rows through a
+> shift register uses three lines whatever its height — see
+> [Row Addressing](#row-addressing--how-the-row-number-reaches-the-panel).
 > See [Step 2 — Scan Rate and Rows Lit Simultaneously](#step-2--scan-rate-and-rows-lit-simultaneously)
 > for the formula that connects panel height, simultaneous rows, and pin count.
 
@@ -861,6 +866,8 @@ mapping.
 - **`rowsel_n_pins` must match the mapping.** The number of address lines is not derived
   from `panel_kind`; you must set `pins.rowsel_n_pins` explicitly and consistently. An
   incorrect value causes wrong row selection independently of the pixel mapping.
+  Shift-register panels are the exception: there `address_type` fixes the count at three —
+  see [Row Addressing](#row-addressing--how-the-row-number-reaches-the-panel).
 
 - **The fields are set in your own `.cpp` file**, not by editing `hub75.hpp` directly. Build
   a `constexpr Hub75Config` value (see examples above). The `hub75.hpp` struct definitions
@@ -880,6 +887,87 @@ mapping.
 
 > 💡 You only need to set the fields that differ from these defaults. There is no need to
 > repeat the entire struct for a standard setup.
+
+---
+
+## Row Addressing — How the Row Number Reaches the Panel
+
+`panel_kind` decides **which rows share an address**. `address_type` decides **how that
+address is delivered to the panel**. The two are independent — a panel can be
+`RowMapping::Standard` and still be shift-register addressed.
+
+### The Two `RowAddressing` Values at a Glance
+
+| `address_type` | Row-select pins | `rowsel_n_pins` | How the row number is encoded |
+|---|---|:---:|---|
+| `RowAddressing::Binary` | A, B, C, D, E — as many as the panel exposes | 1–5, from the panel | The row number in binary, least significant bit on A |
+| `RowAddressing::ABCShiftRegister` | A = row clock, B = BK, C = row data | always `3` | A single one-hot `1`, clocked one step forward per row |
+
+---
+
+### `RowAddressing::Binary` — The Row Number on the Address Lines
+
+**Use this for the vast majority of HUB75 panels.** The panel exposes one pin per address
+bit, and the driver drives the row number straight onto them. This is what "1/32 scan,
+5 address lines (A–E)" on a panel label means: five pins select one of 32 addresses. Set
+`rowsel_n_pins` to the number of pins the panel actually has — 3, 4 or 5 for the usual
+1/8, 1/16 and 1/32 scan panels.
+
+> 💡 `RowAddressing::Binary` is the **default**. You do not need to set `address_type` at
+> all unless your panel selects rows through a shift register.
+
+---
+
+### `RowAddressing::ABCShiftRegister` — The Row Number Clocked Through a Register
+
+Some panels have no address pins. The row number selects a row inside a shift register in
+the panel's row driver, and the HUB75 connector's three row-select pins form a small
+command interface to it:
+
+| Pin | Role |
+|---|---|
+| A | Row clock — each pulse advances the register by one row |
+| B | BK, discharge enable (anti-ghosting) |
+| C | Row data — row 0 puts a `1` here, every later row leaves it low |
+
+Row 0 is the only row that asserts C; every row after it is reached by clocking that same
+`1` one step further. Those three pins are a command interface, not a binary address, so
+`1 << 3` says nothing about the panel's scan rate. A shift-register panel therefore always
+uses `rowsel_n_pins = 3`, whatever its height, and its scan rate comes out as
+`matrix_panel_height / 2` unless you set `scan_mode` — see
+[Step 2](#step-2--scan-rate-and-rows-lit-simultaneously).
+
+**How to recognise it:**
+
+- The panel's datasheet or the vendor's documentation says rows are selected through a
+  shift register rather than by address lines. The 74HC595-type row-switcher panels sold in
+  the Raspberry Pi / Pico HAT form factor — the SM5368 and DP32020 boards, e.g. — use this
+  scheme.
+- The panel connector exposes **A, B and C** only. If it lists A, B, C, D and E, you want
+  `RowAddressing::Binary`, not this.
+
+**Configuration:**
+
+```cpp
+// 96×48 shift-register panel: three row-select pins, clock / BK / data.
+constexpr Hub75Config panel_cfg_sr{
+    .panel = {
+        .matrix_panel_width = 96,
+        .matrix_panel_height = 48,
+        .address_type = RowAddressing::ABCShiftRegister,
+    },
+    .pins = { .rowsel_n_pins = 3 },
+};
+```
+
+`Hub75PanelProfile::P96X48_1_24_SR` is a ready-made preset for exactly this panel. It sets
+`matrix_panel_width`, `matrix_panel_height`, `rowsel_n_pins`, `address_type` and
+`swap_rb_pins` in one go, so `make_hub75_config(Hub75PanelProfile::P96X48_1_24_SR, base)`
+is the block above plus `swap_rb_pins = true`.
+
+> ⚠️ Set `address_type` and `rowsel_n_pins` together. A shift-register panel driven as
+> `Binary`, or with any other pin count, selects the wrong rows and the image comes out
+> banded or scrambled.
 
 ---
 
@@ -1695,6 +1783,8 @@ If a field is **not set** in your `Hub75Config` initializer, the driver falls ba
 | `panel.chain_cols` | `1` | Number of panels chained left-to-right in a single chain row (columns). |
 | `panel.chain_rows` | `1` | Number of chain rows stacked vertically (rows). |
 | `panel.panel_kind` | `RowMapping::Standard` | Pixel-mapping topology — `Standard`, `Split`, or `S31`. |
+| `panel.address_type` | `RowAddressing::Binary` | How the row number reaches the panel — `Binary` (in binary on the address pins) or `ABCShiftRegister` (clocked through a shift register on three pins). |
+| `panel.scan_mode` | `0` (derived) | Number of distinct row addresses — the "N" in the panel's stated 1:N scan rate. `0` derives it from the panel height and addressing; set it when that is not what the panel uses. |
 | `panel.panel_chip` | `Hub75PanelChip::GENERIC` | Driver-IC init sequence — `GENERIC`, `FM6126A`, or `RUL6024`. |
 | `panel.inverted_stb` | `false` | Set `true` if the latch (strobe) signal is inverted on your board. |
 | `panel.sm_clockdiv_factor` | `1.0f` | PIO state machine clock divider factor. Values > 1.0 slow down the state machine — useful to reduce ghosting/flicker on smaller panels. |
@@ -1983,6 +2073,28 @@ In summary, the number of address lines on this board is $2$ which corresponds t
 > 2. selects the corresponding pixel mapping
 >
 > The same applies to `RowMapping::Split` and `RowMapping::S31`.
+
+### When the Derived Scan Rate Is Wrong
+
+Leaving `scan_mode` at `0` lets the driver work the scan rate out for itself, in one of two ways:
+
+- **The height is a power of two and `address_type` is `RowAddressing::Binary`** — the address
+  lines carry the row number directly, so the scan rate is `2^rowsel_n_pins`. This is the rule
+  above, and it covers every example in this step.
+- **Anything else** — the scan rate is `matrix_panel_height / 2`, that is two rows lit per
+  address. A 48-row panel is not a power of two, so both 96×48 presets take this path and come
+  out at 1/24 scan with 2 rows lit, whether they use 5 address lines or the shift register's 3.
+
+Set `scan_mode` to the "N" of the panel's stated rate when that is not what the driver derives.
+A 64-row panel with 5 address lines derives 1/32 scan with 2 rows lit; if the label says
+`-16S-`, the panel lights 4 rows per address instead and needs `scan_mode = 16`.
+
+> ⚠️ The compile-time checks only confirm your numbers are self-consistent — that the height
+> divides into 2 or 4 rows lit per address, and, for binary addressing, that the address lines
+> can express the scan depth. A config for 2 rows lit on a panel wired for 4 compiles cleanly,
+> the panel then decodes each address as a different pair of rows than the driver intended, and
+> the image comes out scrambled. When the derived scan rate looks wrong, the panel label is the
+> only authority.
 
 ---
 
