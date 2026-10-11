@@ -66,12 +66,13 @@ enum class RowAddressing
 // yourself; pick anything else and pass it through make_hub75_config() below.
 enum class Hub75PanelProfile
 {
-    CUSTOM,         // No preset applied - use explicit field values.
-    P64X32_1_16,    // 64x32 panel,  1:16 scan
-    P64X64_1_32,    // 64x64 panel,  1:32 scan
-    P80X40_1_20,    // 80x40 panel,  1:20 scan
-    P96X48_1_24,    // 96x48 panel,  1:24 scan
-    P96X48_1_24_SR, // 96x48 panel,  1:24 scan, ABC shift-register row addressing, R/B swapped
+    CUSTOM,             // No preset applied - use explicit field values.
+    P64X32_1_8,         // 64x32 panel,  1:8 scan (4 rows lit simultaneously)
+    P64X32_1_16,        // 64x32 panel,  1:16 scan
+    P64X64_1_32,        // 64x64 panel,  1:32 scan
+    P80X40_1_20,        // 80x40 panel,  1:20 scan
+    P96X48_1_24,        // 96x48 panel,  1:24 scan
+    P96X48_1_24_SR,     // 96x48 panel,  1:24 scan, ABC shift-register row addressing, R/B swapped
 };
 
 // Selects the panel-chip init sequence sent before streaming starts.
@@ -230,6 +231,7 @@ struct Hub75PanelProfileValues
     uint32_t matrix_panel_width;
     uint32_t matrix_panel_height;
     uint32_t rowsel_n_pins;
+    uint32_t scan_mode;
     RowAddressing address_type;
     bool swap_rb_pins;
 };
@@ -240,27 +242,30 @@ constexpr Hub75PanelProfileValues hub75_panel_profile_values(Hub75PanelProfile p
 {
     switch (profile)
     {
+    case Hub75PanelProfile::P64X32_1_8:
+        return {64, 32, 3, 8, RowAddressing::Binary, false};
     case Hub75PanelProfile::P64X32_1_16:
-        return {64, 32, 4, RowAddressing::Binary, false};
+        return {64, 32, 4, 16, RowAddressing::Binary, false};
     case Hub75PanelProfile::P64X64_1_32:
-        return {64, 64, 5, RowAddressing::Binary, false};
+        return {64, 64, 5, 32, RowAddressing::Binary, false};
     case Hub75PanelProfile::P80X40_1_20:
-        return {80, 40, 5, RowAddressing::Binary, false};
+        return {80, 40, 5, 20, RowAddressing::Binary, false};
     case Hub75PanelProfile::P96X48_1_24:
-        return {96, 48, 5, RowAddressing::Binary, false};
+        return {96, 48, 5, 24, RowAddressing::Binary, false};
     case Hub75PanelProfile::P96X48_1_24_SR:
-        return {96, 48, 3, RowAddressing::ABCShiftRegister, true};
+        return {96, 48, 3, 24, RowAddressing::ABCShiftRegister, true};
     case Hub75PanelProfile::CUSTOM:
     default:
-        return {0, 0, 0, RowAddressing::Binary, false};
+        return {0, 0, 0, 0, RowAddressing::Binary, false};
     }
 }
 
 // Applies `profile` on top of `base`: matrix_panel_width/height, rowsel_n_pins,
-// address_type and swap_rb_pins are overwritten from the profile's preset values;
-// every other field of `base` (wiring, chaining, bit depth, CCM, rotation, ...) passes
-// through unchanged. CUSTOM is a no-op, so a build can be switched between a named
-// profile and fully manual configuration without touching anything else.
+// address_type and swap_rb_pins are overwritten from the profile's preset values,
+// while scan_mode is applied only as a default (see below); every other field of
+// `base` (wiring, chaining, bit depth, CCM, rotation, ...) passes through unchanged.
+// CUSTOM is a no-op, so a build can be switched between a named profile and fully
+// manual configuration without touching anything else.
 //
 // Usage:
 //
@@ -276,6 +281,10 @@ constexpr Hub75PanelProfileValues hub75_panel_profile_values(Hub75PanelProfile p
 // `base.pins`/`base.color`/`base.panel` for those specific fields - so with a non-CUSTOM
 // profile there is no need (and no point) to also set matrix_panel_width/height,
 // rowsel_n_pins, address_type or swap_rb_pins on `base` yourself.
+//
+// `scan_mode` is the exception: it is only filled in when `base.panel.scan_mode` is
+// still 0, so setting it on `base` overrides the preset's scan rate. Use that for a
+// panel of the preset's size wired to light a different number of rows per address.
 constexpr Hub75Config make_hub75_config(Hub75PanelProfile profile, Hub75Config base = {})
 {
     if (profile == Hub75PanelProfile::CUSTOM)
@@ -285,6 +294,11 @@ constexpr Hub75Config make_hub75_config(Hub75PanelProfile profile, Hub75Config b
     base.panel.matrix_panel_width = v.matrix_panel_width;
     base.panel.matrix_panel_height = v.matrix_panel_height;
     base.panel.address_type = v.address_type;
+    // A default, not an override: the preset states the panel's scan rate, but a
+    // panel wired for fewer rows per address than the preset assumes sets this
+    // on `base`, and that has to win.
+    if (base.panel.scan_mode == 0)
+        base.panel.scan_mode = v.scan_mode;
     base.pins.rowsel_n_pins = v.rowsel_n_pins;
     base.color.swap_rb_pins = v.swap_rb_pins;
     return base;
