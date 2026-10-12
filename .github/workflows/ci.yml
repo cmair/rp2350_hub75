@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Keep in step with the sdkVersion / toolchainVersion pins in CMakeLists.txt.
+  PICO_SDK_TAG: 2.3.1
+  TOOLCHAIN_TAG: 15.2.rel1
+  TOOLCHAIN_URL: https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi.tar.xz
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache the ARM toolchain
+        id: cache-toolchain
+        uses: actions/cache@v6
+        with:
+          path: toolchain
+          key: arm-gnu-${{ env.TOOLCHAIN_TAG }}-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install the ARM toolchain
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p toolchain
+          curl -sSL "$TOOLCHAIN_URL" | tar -xJ -C toolchain --strip-components=1
+          toolchain/bin/arm-none-eabi-g++ --version
+
+      - name: Cache the Pico SDK
+        id: cache-sdk
+        uses: actions/cache@v6
+        with:
+          path: pico-sdk
+          key: pico-sdk-${{ env.PICO_SDK_TAG }}-${{ runner.os }}-${{ runner.arch }}
+
+      # Recursive, not the release tarball: the tarball ships an empty
+      # lib/tinyusb, and pico_enable_stdio_usb() then fails to compile the
+      # demos with a misleading 'stdio_usb_connected was not declared'.
+      - name: Check out the Pico SDK
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "$PICO_SDK_TAG" \
+                    --recurse-submodules --shallow-submodules \
+                    https://github.com/raspberrypi/pico-sdk pico-sdk
+
+      # A runner has no picotool, so the SDK builds it from source, and that
+      # build's boot_stage2 step calls find_package(Python3). Without this the
+      # missing interpreter surfaces as a confusing CMake error instead.
+      - name: Check the build prerequisites
+        run: python3 --version
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+                -DPICO_SDK_PATH="$PWD/pico-sdk" \
+                -DPICO_TOOLCHAIN_PATH="$PWD/toolchain"
+
+      - name: Configuration compile tests
+        run: cmake --build build --target hub75_compile_tests
+
+      - name: Demos
+        run: cmake --build build

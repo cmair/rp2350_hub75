@@ -138,3 +138,13 @@ target_include_directories(hub75_demo_dual PRIVATE
 pico_add_extra_outputs(hub75_demo_dual)
 print_size_info(hub75_demo_dual)
 
+# Configuration compile tests - see tests/CMakeLists.txt.
+# The option is declared here rather than in tests/ because the if() below is
+# evaluated before add_subdirectory() reads that file. Configure with
+# -DHUB75_BUILD_COMPILE_TESTS=OFF to drop the tests and their Python 3 use.
+option(HUB75_BUILD_COMPILE_TESTS "Build the configuration compile tests" ON)
+
+if(HUB75_BUILD_COMPILE_TESTS)
+    add_subdirectory(tests)
+endif()
+
